@@ -35,12 +35,18 @@ namespace CSMA_1_persistent
 
             double time = random.NextDouble() * random.Next() % 10;// przykladowe losowanie czasu
             WriteToFile(time);
-            Plan(time);
             
-
             if (buffer.Count == 1)
-                buffer.First().Plan(1);// zaplanowanie zdarzenia pakietu
-
+            {
+                buffer.First().Plan(this.myEvent.eventTime+1);// zaplanowanie zdarzenia pakietu
+                string message = "Nadajnik nr: " + ID.ToString()
+                            + " w chwili: " + this.myEvent.eventTime.ToString()
+                            + " 'budzi' pakiet i ustala jego czas wykonania na: "
+                            + this.myEvent.eventTime.ToString();
+                file.WriteLine(message);
+                Console.WriteLine(message);
+            }
+            Plan(time);
         }
 
         //
@@ -56,12 +62,12 @@ namespace CSMA_1_persistent
         public override void WriteToFile(double nextTime)
         {
             double time = myEvent.eventTime;
-            file.WriteLine(GetType().ToString() + "\t\t"
-                            + ID.ToString() + "\t\t"
-                            + "----\t\t"
-                            + "----\t\t"
-                            + time.ToString() + "\t\t\t"
-                            + (time + nextTime).ToString());
+            string message = "Nadajnik nr: " + ID.ToString()
+                            + " w chwili: " + time.ToString()
+                            + " generuje pakiet i ustala czas nowej generacji pakietu: "
+                            + (time + nextTime).ToString();
+            file.WriteLine(message);
+            Console.WriteLine(message);
 
             file.Flush();
         }

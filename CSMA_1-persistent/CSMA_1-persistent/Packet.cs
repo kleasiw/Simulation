@@ -61,7 +61,7 @@ namespace CSMA_1_persistent
         public Packet(short identity, Process myBase, Space space)
         {
             ID = identity;
-            ACK = false;
+            ACK = true;
             startTime = -1.0;
             CTP = -1;
             r = 0;
@@ -84,17 +84,17 @@ namespace CSMA_1_persistent
             double tempTime;
             while (active)
             {
-                tempTime = WhatTimeIsIt();
+                tempTime = myEvent.eventTime;
                 switch (phase)
                 {
-                    case statement.waiting: phase = statement.polling;break;
+                    case statement.waiting: WriteToFile(0);phase = statement.polling;break;
                     case statement.polling:// faza odpytywania
                         if (mySpace.ChannelIsEmpty() == true)
                         {
+                            WriteToFile(0);
                             startTime = tempTime;
                             phase = statement.transmiting;
                             mySpace.AddToChannel(this);
-                            WriteToFile(0);
                         }
                         else
                         {
@@ -103,10 +103,11 @@ namespace CSMA_1_persistent
                             {
                                 foreach (Packet o in collision) o.ACK = false;
                                 startTime = tempTime;
+                                WriteToFile(0);
                                 phase = statement.transmiting;
                                 ACK = false;
                                 mySpace.AddToChannel(this);
-                                WriteToFile(0);
+                                
                             }
                             else
                             {
@@ -120,28 +121,31 @@ namespace CSMA_1_persistent
                     case statement.transmiting:
                         if (CTP < 0)
                             CTP = random.Next()%10 + 1;// CTP losowy całkowity czas {1,2...10}
-                        phase = statement.ACKchecking;
                         WriteToFile(CTP + 1);
+                        phase = statement.ACKchecking;
                         Plan(CTP + 1);
                         active = false;
                         break;
 
                     case statement.ACKchecking:
+
                         mySpace.RemoveFromChannel(this);
                         if(ACK==false && r < LR)
                         {
                             r++;
-                            phase = statement.polling;
                             double R = random.NextDouble()*MaxRangeOfR(r);// R należy do <0,2^r-1>
                             WriteToFile(R * CTP);
+                            phase = statement.polling;
+                            ACK = true;
                             Plan(R * CTP);    
                          }
                          else
                          {
                             terminated = true;
+                            WriteToFile(0);
                             Packet nextPacket = baseStation.DeleteFirstPacket();
                             nextPacket.Plan(tempTime+1);// +1 ponieważ początkowo _eventTime=-1
-                                
+   
                          }
                          active = false;
                          break;
@@ -153,22 +157,57 @@ namespace CSMA_1_persistent
         public override void WriteToFile(double nextTime)
         {
 
-            double time = WhatTimeIsIt();
-            file.WriteLine(GetType().ToString() + "\t\t"
-                            + ID.ToString() + "\t\t"
-                            + phase.ToString() + "\t\t"
-                            + r.ToString() + "\t\t"
-                            + time.ToString() + "\t\t\t"
-                            + (time + nextTime).ToString());
-   
-            //file.Flush();
+            double time = myEvent.eventTime;
+            string message = "Pakiet z ID:" + ID.ToString()
+                            + " w chwili: " + time.ToString()
+                            + " znajdujący się w fazie: " + phase.ToString()
+                            + " (retrans.: "+ r.ToString()+")";
+            file.Write(message);
+            Console.Write(message);
+            switch (this.phase)
+            {
+                case statement.waiting:
+                    message = " oczekuje na obudzenie.";
+                    file.WriteLine(message);
+                    Console.WriteLine(message); break;
+
+                case statement.polling:
+                    message = " odpytuje dostępność kanału";
+                    file.WriteLine(message);
+                    Console.WriteLine(message); break;
+
+                case statement.transmiting:
+                    message = " rozpoczyna transmisję, która zakończy się w chwili: "
+                            + (time + nextTime).ToString();
+                    file.WriteLine(message);
+                    Console.WriteLine(message); break;
+
+                case statement.ACKchecking:
+                    message = " sprawdza ACK: " + ACK.ToString();
+                    file.Write(message);
+                    Console.Write(message);
+                    if (ACK == false)
+                    {
+                        message = " i rozpoczyna retransmisję z nr: " + r.ToString()
+                            + ", w chwili: " + (time + nextTime).ToString();
+                        file.WriteLine(message);
+                        Console.WriteLine(message);
+                    }
+                    else
+                    {
+                        file.WriteLine(" i kończy transmisję, wzbudzając nowy pakiet.");
+                        Console.WriteLine(" i kończy transmisję, wzbudzając nowy pakiet.");
+                    }
+                    break;
+            }
+            file.Flush();
         }
         //
         // Odczytanie aktualnego czasu zdarzenia pakietu.
         //
-        public double WhatTimeIsIt()
+        public double WhenItStarted()
         {
-            return myEvent.eventTime;
+            return startTime;
         }
 
         //

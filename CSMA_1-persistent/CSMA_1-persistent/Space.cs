@@ -34,9 +34,7 @@ namespace CSMA_1_persistent
             DirectoryInfo directory = new DirectoryInfo(Environment.CurrentDirectory);
             string path = directory.FullName+"\\SimulationLogs.txt";
             file = new StreamWriter(path, false);
-            file.WriteLine("Proces:\t\t\t\t Numer ID:\t\t"
-                            + "Faza: \t Nr retransmisji:\t"
-                            + "Czas aktualny:\t Czas następnego wystąpienia:");
+            file.WriteLine("Lista logów:");
            
             file.Flush();
             for (short i = 0; i < K; i++)
@@ -47,16 +45,19 @@ namespace CSMA_1_persistent
         /// <summary>
         /// Pętla główna symulacji.
         /// </summary>
-        public void Simulation()
+        /// <param name="decision">Wybór trybu symulacji: true - krokowy,
+        /// false - ciągły.</param>
+        public void Simulation(bool decision)
         {
             globalTime = -1.0;
             Event current;
-            while (globalTime < 25)
+            while (globalTime < 40)
             {
-                current = agenda.Last();
-                agenda.Remove(current);
-                globalTime = current.eventTime;
-                current.GetProc().Execute();
+                current = agenda.Last();// wybór najwcześniejszego zdarzenia
+                agenda.Remove(current);// usunięcie go z listy zdarzeń(zostanie dodany w trakcie Execute)
+                globalTime = current.eventTime;// ustalenie aktualnego czasu symulacji
+                current.GetProc().Execute();// uruchomienie akrualnego procesu
+                if (decision) Console.ReadKey();
             }
         }
 
@@ -86,7 +87,7 @@ namespace CSMA_1_persistent
         //
         public List<Packet> SameTimeInChannel(double time)
         {
-            return channel.FindAll(o => o.WhatTimeIsIt() == time).ToList();
+            return channel.FindAll(o => o.WhenItStarted() == time).ToList();
         }
 
         //
@@ -95,7 +96,7 @@ namespace CSMA_1_persistent
         public void AddToAgenda(Event ev)
         {
             int index = agenda.IndexOf(agenda.Find(el => el.eventTime <= ev.eventTime));
-            if (index < 0) index = 0;
+            if (index < 0) index = agenda.Count;
             agenda.Insert(index, ev);   
         }
 
