@@ -14,32 +14,54 @@ namespace CSMA_1_persistent
     public class Space
     {
         // Aktualny czas liczony w ms.
-        public double globalTime;
+        private double globalTime;
 
-        public StreamWriter file;
-
+        private StreamWriter file;
 
         // Liczba nadajników i odbiorników.
         private const int K = 4;
 
+        // Lista reprezentująca transmitowane w kanale pakiety.
         private static List<Packet> channel;
-        public List<Event> agenda;
+
+        // Lista nadajników.
         private List<Source> transmitters;
+
+        // Generator równomierny z zakresu {0,1...10}
+        private RandGenerator.UniformRandomGenerator uniformIntiger;
+
+        // Generator równomierny z przedziału.
+        private RandGenerator.UniformRandomGenerator uniformInterval;
+
+        // Zbiór zaplanowanych zdarzeń.
+        public List<Event> agenda;
+
+
 
         public Space()
         {
             channel = new List<Packet>();
             agenda = new List<Event>();
             transmitters = new List<Source>();
+
             DirectoryInfo directory = new DirectoryInfo(Environment.CurrentDirectory);
-            string path = directory.FullName+"\\SimulationLogs.txt";
-            file = new StreamWriter(path, false);
+            StringBuilder path = new StringBuilder(directory.FullName.ToString());
+
+            StringBuilder pathLog= new StringBuilder(path.ToString() +"\\SimulationLogs.txt");
+            file = new StreamWriter(pathLog.ToString(), false);
             file.WriteLine("Lista logów:");
-           
             file.Flush();
-            for (short i = 0; i < K; i++)
-            { transmitters.Add(new Source(i, this)); }
             
+            StringBuilder pathKernel = new StringBuilder(path.ToString());
+            pathKernel.Append(path.ToString() + "\\kernels.txt");
+            StreamReader kernels = new StreamReader(pathKernel.ToString());
+            
+            Console.WriteLine("Wybierz lambdę dla generatorów wykladniczych");
+            double lambda = double.Parse(Console.ReadLine());
+            for (short i = 0; i < K; i++)
+            { transmitters.Add(new Source(i, this, file,lambda,int.Parse(kernels.ReadLine()))); }
+            uniformInterval = new RandGenerator.UniformRandomGenerator(int.Parse(kernels.ReadLine()));
+            uniformIntiger = new RandGenerator.UniformRandomGenerator(int.Parse(kernels.ReadLine()));
         }
 
         /// <summary>
@@ -59,6 +81,30 @@ namespace CSMA_1_persistent
                 current.GetProc().Execute();// uruchomienie akrualnego procesu
                 if (decision) Console.ReadKey();
             }
+        }
+
+
+        /// <summary>
+        /// Generuje ziarna.
+        /// </summary>
+        /// <param name="number">Liczba przewidywanych symulacji</param>
+        /// <param name="kernel">Ziarno początkowe</param>
+        /// <returns>Tablica ziaren.</returns>
+        public int[] KernelGeneration(int number, int kernel)
+        {
+            Generators.UniformGenerator gen = new Generators.UniformGenerator(kernel);
+            int[] array = new int[(K+1)*number];
+            for (int i = 0; i < K + 1; i++)
+            {
+                for (int j = 0; j < number; j++)
+                {
+                    for (int m = 0; m < 100000; m++)
+                        gen.Rand(0, int.MaxValue);
+                    array.SetValue(gen.get_kernel(),  i*number+j);
+                }
+            }
+            return array;
+
         }
 
         public delegate void ChannelSetup(Packet x);

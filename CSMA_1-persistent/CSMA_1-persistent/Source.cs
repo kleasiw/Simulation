@@ -13,15 +13,17 @@ namespace CSMA_1_persistent
     class Source : Process 
     {
         private Queue<Packet> buffer;
+        private RandGenerator.ExponentialRandomGenerator myExpGenerator;
 
-        public Source(short number, Space space)
+        public Source(short number, Space space,StreamWriter file_,double lambda, int kernel)
         {
             ID = number;
             mySpace = space;
             myEvent = new Event(0, this);
             mySpace.AddToAgenda(myEvent);
             buffer = new Queue<Packet>();
-            file = space.file;
+            file = file_;
+            myExpGenerator = new RandGenerator.ExponentialRandomGenerator(lambda, kernel);
         }
 
 
@@ -31,7 +33,7 @@ namespace CSMA_1_persistent
         public override void Execute()
         {
             Random random = new Random();
-            buffer.Enqueue(new Packet(ID, this, mySpace));
+            buffer.Enqueue(new Packet(ID, this, mySpace, file));
 
             double time = random.NextDouble() * random.Next() % 10;// przykladowe losowanie czasu
             WriteToFile(time);

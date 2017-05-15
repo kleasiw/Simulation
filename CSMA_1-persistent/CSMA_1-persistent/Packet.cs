@@ -58,7 +58,7 @@ namespace CSMA_1_persistent
             }
         }
 
-        public Packet(short identity, Process myBase, Space space)
+        public Packet(short identity, Process myBase, Space space, StreamWriter file_)
         {
             ID = identity;
             ACK = true;
@@ -69,7 +69,7 @@ namespace CSMA_1_persistent
             baseStation = myBase as Source;
             mySpace = space;
             terminated = false;
-            file = space.file;
+            file = file_;
             myEvent = new Event(-1.0, this);
         }
 
