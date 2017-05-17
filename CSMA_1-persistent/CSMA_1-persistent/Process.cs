@@ -16,8 +16,8 @@ namespace CSMA_1_persistent
         public short ID { get; set; }
         protected Event myEvent;
         protected Space mySpace;
-        protected StreamWriter file;
-
+        protected Logs logsDocument;
+        //protected Kernels kernel;
 
 
         //
@@ -25,7 +25,10 @@ namespace CSMA_1_persistent
         //
         public void Plan(double time)
         {
-            myEvent.eventTime = time;
+            if(myEvent.eventTime<0) // jesli jest pakietem z czasem -1
+                myEvent.eventTime = time + 1;
+            else
+                myEvent.eventTime = time;
             mySpace.AddToAgenda(myEvent);
         }
 

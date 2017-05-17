@@ -5,8 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.IO;
 using System.Resources;
-
-
+using static CSMA_1_persistent.RandGenerator;
 
 namespace CSMA_1_persistent
 {
@@ -16,8 +15,14 @@ namespace CSMA_1_persistent
         // Potwierdzenie odbioru.
         private bool ACK;
 
-        //Czas nadania pakietu.
+        // Czas nadania pakietu.
         private double startTime;
+
+        // Czas pojawienia się w buforze.
+        private double bufferTime;
+
+        // Czas pierwszego wysłania pakietu.
+        private double firstTransmitTime;
 
         // Czas transmisji pakietu.
         private int CTP;
@@ -44,7 +49,12 @@ namespace CSMA_1_persistent
         // Informacja o zakończeniu procesu.
         private bool _terminated;
 
-        
+        // Generator równomierny z zakresu {0,1...10}
+        private UniformRandomGenerator uniformIntiger;
+
+        // Generator równomierny z przedziału.
+        private UniformRandomGenerator uniformInterval;
+
 
         public bool terminated
         {
@@ -58,19 +68,24 @@ namespace CSMA_1_persistent
             }
         }
 
-        public Packet(short identity, Process myBase, Space space, StreamWriter file_)
+        public Packet(short identity, double time, Process myBase, Space space,Logs l, UniformRandomGenerator[] newGenerators)
         {
             ID = identity;
             ACK = true;
-            startTime = -1.0;
+            startTime = firstTransmitTime = -1.0;
             CTP = -1;
+            bufferTime = time;
             r = 0;
             phase = statement.waiting;
             baseStation = myBase as Source;
             mySpace = space;
+            logsDocument = l;
             terminated = false;
-            file = file_;
             myEvent = new Event(-1.0, this);
+
+            uniformIntiger = newGenerators[0];
+            uniformInterval = newGenerators[1];
+            
         }
 
 
@@ -79,7 +94,7 @@ namespace CSMA_1_persistent
         //
         public override void Execute()
         {
-            Random random = new Random();
+            //Random random = new Random();
             bool active = true;
             double tempTime;
             while (active)
@@ -87,8 +102,10 @@ namespace CSMA_1_persistent
                 tempTime = myEvent.eventTime;
                 switch (phase)
                 {
-                    case statement.waiting: WriteToFile(0);phase = statement.polling;break;
+                    case statement.waiting: //WriteToFile(0);
+                        phase = statement.polling;break;
                     case statement.polling:// faza odpytywania
+                        
                         if (mySpace.ChannelIsEmpty() == true)
                         {
                             WriteToFile(0);
@@ -101,6 +118,7 @@ namespace CSMA_1_persistent
                             List<Packet> collision = mySpace.SameTimeInChannel(tempTime);
                             if (collision.Count != 0)
                             {
+                                
                                 foreach (Packet o in collision) o.ACK = false;
                                 startTime = tempTime;
                                 WriteToFile(0);
@@ -119,11 +137,20 @@ namespace CSMA_1_persistent
                         break;
 
                     case statement.transmiting:
+
                         if (CTP < 0)
-                            CTP = random.Next()%10 + 1;// CTP losowy całkowity czas {1,2...10}
-                        WriteToFile(CTP + 1);
+                        {
+                            // nie było wcześniej transmisji więc zapisuje opuszczenie bufora
+                            firstTransmitTime = tempTime;
+                        }
+
+                        double x = uniformIntiger.Rand() * 10;
+                        CTP = (int)x + 1;// CTP losowy całkowity czas {1,2...10}
+                        if (CTP == 11) CTP = 10;
+
+                        WriteToFile(CTP+1);
                         phase = statement.ACKchecking;
-                        Plan(CTP + 1);
+                        Plan(CTP+1);// 1 - czas powrotu ACK
                         active = false;
                         break;
 
@@ -132,19 +159,32 @@ namespace CSMA_1_persistent
                         mySpace.RemoveFromChannel(this);
                         if(ACK==false && r < LR)
                         {
+                            // transmisja się nie powiodła, ale nie wykorzystano limitu retransmisji
                             r++;
-                            double R = random.NextDouble()*MaxRangeOfR(r);// R należy do <0,2^r-1>
+                            double R = Math.Round(uniformInterval.Rand(0,MaxRangeOfR(r)),1);// R należy do <0,2^r-1>
                             WriteToFile(R * CTP);
                             phase = statement.polling;
                             ACK = true;
-                            Plan(R * CTP);    
+                            Plan(R * CTP);
                          }
+                        else if( ACK==false && r >= LR)
+                        {
+                            terminated = true;
+                            // transmisja się nie powiodła i nie można już retransmitować
+                            mySpace.stats.AddFail(); // zwiększ liczbę porażek
+                            mySpace.stats.AddWaiting(firstTransmitTime - bufferTime); // dodaj czas oczekiwania
+                        }
                          else
                          {
                             terminated = true;
                             WriteToFile(0);
+                            mySpace.stats.AddSuccess(); // zwiększ liczbę sukcesów
+                            mySpace.stats.AddRetrans(r); // zwiększ sumę retransmisji
+                            mySpace.stats.AddDelay(tempTime - bufferTime); // dodaj opóźnienie
+                            mySpace.stats.AddWaiting(firstTransmitTime - bufferTime); // dodaj czas oczekiwania
                             Packet nextPacket = baseStation.DeleteFirstPacket();
-                            nextPacket.Plan(tempTime+1);// +1 ponieważ początkowo _eventTime=-1
+                            if(nextPacket!=null)
+                            nextPacket.Plan(tempTime);
    
                          }
                          active = false;
@@ -158,49 +198,54 @@ namespace CSMA_1_persistent
         {
 
             double time = myEvent.eventTime;
-            string message = "Pakiet z ID:" + ID.ToString()
+            StringBuilder message = new StringBuilder("Pakiet z ID:" + ID.ToString()
                             + " w chwili: " + time.ToString()
                             + " znajdujący się w fazie: " + phase.ToString()
-                            + " (retrans.: "+ r.ToString()+")";
-            file.Write(message);
+                            + " (retrans.: "+ r.ToString()+")");
+            logsDocument.Write(message);
             Console.Write(message);
+            message.Clear();
             switch (this.phase)
             {
                 case statement.waiting:
-                    message = " oczekuje na obudzenie.";
-                    file.WriteLine(message);
+                    message.Append(" oczekuje na obudzenie.");
+                    logsDocument.Write(message);
                     Console.WriteLine(message); break;
 
                 case statement.polling:
-                    message = " odpytuje dostępność kanału";
-                    file.WriteLine(message);
+                    message.Append(" odpytuje dostępność kanału");
+                    logsDocument.Write(message);
                     Console.WriteLine(message); break;
 
                 case statement.transmiting:
-                    message = " rozpoczyna transmisję, która zakończy się w chwili: "
-                            + (time + nextTime).ToString();
-                    file.WriteLine(message);
+                    message.Append(" rozpoczyna transmisję, która zakończy się w chwili: "
+                            + (time + nextTime).ToString());
+                    logsDocument.Write(message);
                     Console.WriteLine(message); break;
 
                 case statement.ACKchecking:
-                    message = " sprawdza ACK: " + ACK.ToString();
-                    file.Write(message);
+                    message.Append(" sprawdza ACK: " + ACK.ToString());
+                    logsDocument.Write(message);
                     Console.Write(message);
+                    message.Clear();
+
+                    //---------------------------//nalezy usprawnić logi, co jeśli ack ==false i r>=LR
+                    //---------------------------//
                     if (ACK == false)
                     {
-                        message = " i rozpoczyna retransmisję z nr: " + r.ToString()
-                            + ", w chwili: " + (time + nextTime).ToString();
-                        file.WriteLine(message);
+                        message.Append(" i rozpoczyna retransmisję z nr: " + r.ToString()
+                            + ", w chwili: " + (time + nextTime).ToString());
+                        logsDocument.Write(message);
                         Console.WriteLine(message);
                     }
                     else
                     {
-                        file.WriteLine(" i kończy transmisję, wzbudzając nowy pakiet.");
+                        logsDocument.Write(message.Append(" i kończy transmisję, wzbudzając nowy pakiet."));
                         Console.WriteLine(" i kończy transmisję, wzbudzając nowy pakiet.");
                     }
                     break;
             }
-            file.Flush();
+           // file.Flush();
         }
         //
         // Odczytanie aktualnego czasu zdarzenia pakietu.
@@ -213,11 +258,11 @@ namespace CSMA_1_persistent
         //
         // Oblicza maksymalną wartość przedziału wartości R.
         //
-        private double MaxRangeOfR(int r)
+        private int MaxRangeOfR(int r)
         {
             int max = 1;
             for (int i = 0; i < r; i++)
-                max *= r;
+                max *= 2;
             return max - 1;
         }
 

@@ -6,10 +6,10 @@ using System.Threading.Tasks;
 
 namespace CSMA_1_persistent
 {
-    class RandGenerator
+    public class RandGenerator
     {
         
-	    public  class UniformRandomGenerator
+	    public class UniformRandomGenerator
         {
             // Uchwyt do obiektu generatora równomiernego.
             private Generators.UniformGenerator uniform_generator_;
@@ -33,7 +33,7 @@ namespace CSMA_1_persistent
            
         }
 
-        public  class ExponentialRandomGenerator
+        public class ExponentialRandomGenerator
         {
 
             private Generators.ExpGenerator exp_generator_;

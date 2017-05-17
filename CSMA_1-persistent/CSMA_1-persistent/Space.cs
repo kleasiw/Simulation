@@ -16,10 +16,12 @@ namespace CSMA_1_persistent
         // Aktualny czas liczony w ms.
         private double globalTime;
 
-        private StreamWriter file;
+        private Logs logsDocument;
+        private Kernels kernel;
+
 
         // Liczba nadajników i odbiorników.
-        private const int K = 4;
+        private int K;
 
         // Lista reprezentująca transmitowane w kanale pakiety.
         private static List<Packet> channel;
@@ -27,41 +29,28 @@ namespace CSMA_1_persistent
         // Lista nadajników.
         private List<Source> transmitters;
 
-        // Generator równomierny z zakresu {0,1...10}
-        private RandGenerator.UniformRandomGenerator uniformIntiger;
 
-        // Generator równomierny z przedziału.
-        private RandGenerator.UniformRandomGenerator uniformInterval;
 
         // Zbiór zaplanowanych zdarzeń.
         public List<Event> agenda;
 
+        public Statistics stats;
 
 
-        public Space()
+
+        public Space(double lambda, int k)
         {
             channel = new List<Packet>();
             agenda = new List<Event>();
             transmitters = new List<Source>();
+            logsDocument = new Logs();
+            kernel = new Kernels();
+            K = k;
 
-            DirectoryInfo directory = new DirectoryInfo(Environment.CurrentDirectory);
-            StringBuilder path = new StringBuilder(directory.FullName.ToString());
-
-            StringBuilder pathLog= new StringBuilder(path.ToString() +"\\SimulationLogs.txt");
-            file = new StreamWriter(pathLog.ToString(), false);
-            file.WriteLine("Lista logów:");
-            file.Flush();
-            
-            StringBuilder pathKernel = new StringBuilder(path.ToString());
-            pathKernel.Append(path.ToString() + "\\kernels.txt");
-            StreamReader kernels = new StreamReader(pathKernel.ToString());
-            
-            Console.WriteLine("Wybierz lambdę dla generatorów wykladniczych");
-            double lambda = double.Parse(Console.ReadLine());
             for (short i = 0; i < K; i++)
-            { transmitters.Add(new Source(i, this, file,lambda,int.Parse(kernels.ReadLine()))); }
-            uniformInterval = new RandGenerator.UniformRandomGenerator(int.Parse(kernels.ReadLine()));
-            uniformIntiger = new RandGenerator.UniformRandomGenerator(int.Parse(kernels.ReadLine()));
+            { transmitters.Add(new Source(i, this, logsDocument, lambda, kernel)); }
+
+            stats = new Statistics();
         }
 
         /// <summary>
@@ -69,11 +58,11 @@ namespace CSMA_1_persistent
         /// </summary>
         /// <param name="decision">Wybór trybu symulacji: true - krokowy,
         /// false - ciągły.</param>
-        public void Simulation(bool decision)
+        public void Simulation(bool decision, double time)
         {
             globalTime = -1.0;
             Event current;
-            while (globalTime < 40)
+            while (globalTime < time)
             {
                 current = agenda.Last();// wybór najwcześniejszego zdarzenia
                 agenda.Remove(current);// usunięcie go z listy zdarzeń(zostanie dodany w trakcie Execute)
@@ -93,19 +82,25 @@ namespace CSMA_1_persistent
         public int[] KernelGeneration(int number, int kernel)
         {
             Generators.UniformGenerator gen = new Generators.UniformGenerator(kernel);
-            int[] array = new int[(K+1)*number];
-            for (int i = 0; i < K + 1; i++)
+            int[] array = new int[number*3*K];
+            for (int i = 0; i < K ; i++)
             {
                 for (int j = 0; j < number; j++)
                 {
-                    for (int m = 0; m < 100000; m++)
-                        gen.Rand(0, int.MaxValue);
-                    array.SetValue(gen.get_kernel(),  i*number+j);
+                    for(int k = 0; k < 3; k++)
+                    {
+                        for (int m = 0; m < 100000; m++)
+                            gen.Rand(0, int.MaxValue);
+                        array.SetValue(gen.get_kernel(), i * number*3 + j*3 +k);
+                    }
+                    
                 }
             }
             return array;
 
         }
+
+       // public delegate double Rand()
 
         public delegate void ChannelSetup(Packet x);
 
@@ -146,6 +141,13 @@ namespace CSMA_1_persistent
             agenda.Insert(index, ev);   
         }
 
+        public void ShowStats() { stats.ShowStats(); }
+
+        public void Close()
+        {
+            logsDocument.Close();
+            kernel.Close();
+        }
        
     }
 }

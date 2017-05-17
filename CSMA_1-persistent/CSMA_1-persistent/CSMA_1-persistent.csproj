@@ -60,6 +60,8 @@
   <ItemGroup>
     <Compile Include="Event.cs" />
     <Compile Include="Generators.cs" />
+    <Compile Include="Kernels.cs" />
+    <Compile Include="Logs.cs" />
     <Compile Include="Packet.cs" />
     <Compile Include="Process.cs" />
     <Compile Include="Program.cs" />
@@ -67,6 +69,7 @@
     <Compile Include="RandGenerator.cs" />
     <Compile Include="Source.cs" />
     <Compile Include="Space.cs" />
+    <Compile Include="Statistics.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
