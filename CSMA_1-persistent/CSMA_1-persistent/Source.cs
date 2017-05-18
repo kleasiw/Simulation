@@ -43,7 +43,7 @@ namespace CSMA_1_persistent
         //
         // Metoda obsługi procesu.
         //
-        public override void Execute()
+        public override void Execute(double start)
         {
             UniformRandomGenerator[] uniform = { uniformIntiger, uniformInterval };
             buffer.Enqueue(new Packet(ID, myEvent.eventTime, this, mySpace,logsDocument, uniform));

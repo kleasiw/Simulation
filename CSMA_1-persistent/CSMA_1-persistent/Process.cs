@@ -35,7 +35,7 @@ namespace CSMA_1_persistent
         //
         // Metoda obsługi procesu.
         //
-        public virtual void Execute() { }
+        public virtual void Execute(double start) { }
 
         public virtual void WriteToFile(double nextTime) { }
 

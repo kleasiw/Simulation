@@ -20,10 +20,7 @@ namespace CSMA_1_persistent
 
         // Czas pojawienia się w buforze.
         private double bufferTime;
-
-        // Czas pierwszego wysłania pakietu.
-        private double firstTransmitTime;
-
+    
         // Czas transmisji pakietu.
         private int CTP;
 
@@ -36,8 +33,8 @@ namespace CSMA_1_persistent
         // Faza procesu.
         private enum statement
         {
-            waiting=0,
-            polling=1,
+            waiting,
+            polling,
             transmiting,
             ACKchecking
         }
@@ -72,7 +69,7 @@ namespace CSMA_1_persistent
         {
             ID = identity;
             ACK = true;
-            startTime = firstTransmitTime = -1.0;
+            startTime = -1.0;
             CTP = -1;
             bufferTime = time;
             r = 0;
@@ -92,7 +89,7 @@ namespace CSMA_1_persistent
         //
         // Metoda obsługi procesu.
         //
-        public override void Execute()
+        public override void Execute(double start)
         {
             //Random random = new Random();
             bool active = true;
@@ -140,8 +137,9 @@ namespace CSMA_1_persistent
 
                         if (CTP < 0)
                         {
-                            // nie było wcześniej transmisji więc zapisuje opuszczenie bufora
-                            firstTransmitTime = tempTime;
+                            if (tempTime > start)
+                                // nie było wcześniej transmisji więc zapisuje opuszczenie bufora
+                                mySpace.stats.AddWaiting(tempTime - bufferTime); // dodaj czas oczekiwania
                         }
 
                         double x = uniformIntiger.Rand() * 10;
@@ -170,22 +168,26 @@ namespace CSMA_1_persistent
                         else if( ACK==false && r >= LR)
                         {
                             terminated = true;
-                            // transmisja się nie powiodła i nie można już retransmitować
-                            mySpace.stats.AddFail(); // zwiększ liczbę porażek
-                            mySpace.stats.AddWaiting(firstTransmitTime - bufferTime); // dodaj czas oczekiwania
+                            if(tempTime>start)
+                                // transmisja się nie powiodła i nie można już retransmitować
+                                mySpace.stats.AddFail(ID); // zwiększ liczbę porażek
+                            Packet nextPacket = baseStation.DeleteFirstPacket();
+                            if (nextPacket != null)
+                                nextPacket.Plan(tempTime+0.1);
                         }
                          else
                          {
                             terminated = true;
                             WriteToFile(0);
-                            mySpace.stats.AddSuccess(); // zwiększ liczbę sukcesów
-                            mySpace.stats.AddRetrans(r); // zwiększ sumę retransmisji
-                            mySpace.stats.AddDelay(tempTime - bufferTime); // dodaj opóźnienie
-                            mySpace.stats.AddWaiting(firstTransmitTime - bufferTime); // dodaj czas oczekiwania
+                            if (tempTime > start)
+                            {
+                                mySpace.stats.AddSuccess(ID); // zwiększ liczbę sukcesów
+                                mySpace.stats.AddRetrans(r); // zwiększ sumę retransmisji
+                                mySpace.stats.AddDelay(tempTime - bufferTime); // dodaj opóźnienie
+                            }
                             Packet nextPacket = baseStation.DeleteFirstPacket();
                             if(nextPacket!=null)
-                            nextPacket.Plan(tempTime);
-   
+                                nextPacket.Plan(tempTime+0.1);
                          }
                          active = false;
                          break;
@@ -198,9 +200,9 @@ namespace CSMA_1_persistent
         {
 
             double time = myEvent.eventTime;
-            StringBuilder message = new StringBuilder("Pakiet z ID:" + ID.ToString()
-                            + " w chwili: " + time.ToString()
-                            + " znajdujący się w fazie: " + phase.ToString()
+            StringBuilder message = new StringBuilder("Pakiet z ID: " + ID.ToString()
+                            + " w " + time.ToString() + "ms"
+                            + " będący w fazie: " + phase.ToString()
                             + " (retrans.: "+ r.ToString()+")");
             logsDocument.Write(message);
             Console.Write(message);
@@ -208,12 +210,12 @@ namespace CSMA_1_persistent
             switch (this.phase)
             {
                 case statement.waiting:
-                    message.Append(" oczekuje na obudzenie.");
+                    message.Append(" został obudzony.");
                     logsDocument.Write(message);
                     Console.WriteLine(message); break;
 
                 case statement.polling:
-                    message.Append(" odpytuje dostępność kanału");
+                    message.Append(" odpytuje kanał.");
                     logsDocument.Write(message);
                     Console.WriteLine(message); break;
 
@@ -224,7 +226,7 @@ namespace CSMA_1_persistent
                     Console.WriteLine(message); break;
 
                 case statement.ACKchecking:
-                    message.Append(" sprawdza ACK: " + ACK.ToString());
+                    message.Append(" sprawdza ACK: " + ACK.ToString() + "\n");
                     logsDocument.Write(message);
                     Console.Write(message);
                     message.Clear();
@@ -241,12 +243,12 @@ namespace CSMA_1_persistent
                     else
                     {
                         logsDocument.Write(message.Append(" i kończy transmisję, wzbudzając nowy pakiet."));
-                        Console.WriteLine(" i kończy transmisję, wzbudzając nowy pakiet.");
+                        Console.WriteLine(" i kończy transmisję, wzbudzając nowy pakiet.\n");
                     }
                     break;
             }
-           // file.Flush();
         }
+
         //
         // Odczytanie aktualnego czasu zdarzenia pakietu.
         //

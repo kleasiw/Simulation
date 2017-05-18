@@ -29,28 +29,26 @@ namespace CSMA_1_persistent
         // Lista nadajników.
         private List<Source> transmitters;
 
-
-
         // Zbiór zaplanowanych zdarzeń.
         public List<Event> agenda;
+
 
         public Statistics stats;
 
 
-
-        public Space(double lambda, int k)
+        public Space(double lambda, int k, Kernels kern)
         {
             channel = new List<Packet>();
             agenda = new List<Event>();
             transmitters = new List<Source>();
             logsDocument = new Logs();
-            kernel = new Kernels();
+            kernel = kern;
             K = k;
 
             for (short i = 0; i < K; i++)
             { transmitters.Add(new Source(i, this, logsDocument, lambda, kernel)); }
 
-            stats = new Statistics();
+            stats = new Statistics(K);
         }
 
         /// <summary>
@@ -58,7 +56,7 @@ namespace CSMA_1_persistent
         /// </summary>
         /// <param name="decision">Wybór trybu symulacji: true - krokowy,
         /// false - ciągły.</param>
-        public void Simulation(bool decision, double time)
+        public void Simulation(bool decision, double start, double time)
         {
             globalTime = -1.0;
             Event current;
@@ -67,7 +65,7 @@ namespace CSMA_1_persistent
                 current = agenda.Last();// wybór najwcześniejszego zdarzenia
                 agenda.Remove(current);// usunięcie go z listy zdarzeń(zostanie dodany w trakcie Execute)
                 globalTime = current.eventTime;// ustalenie aktualnego czasu symulacji
-                current.GetProc().Execute();// uruchomienie akrualnego procesu
+                current.GetProc().Execute(start);// uruchomienie akrualnego procesu
                 if (decision) Console.ReadKey();
             }
         }
@@ -141,12 +139,12 @@ namespace CSMA_1_persistent
             agenda.Insert(index, ev);   
         }
 
-        public void ShowStats() { stats.ShowStats(); }
+        public void ShowStats(StreamWriter f) { stats.ShowStats(f, globalTime); }
 
         public void Close()
         {
             logsDocument.Close();
-            kernel.Close();
+       //     kernel.Close();
         }
        
     }
