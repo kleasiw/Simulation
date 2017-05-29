@@ -1,12 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.IO;
-using System.Resources;
-
-namespace CSMA_1_persistent
+﻿namespace CSMA_1_persistent
 {
      /// <summary>
      /// Klasa bazowa procesów.
@@ -15,29 +7,24 @@ namespace CSMA_1_persistent
     {
         public short ID { get; set; }
         protected Event myEvent;
-        protected Space mySpace;
+        protected System mySpace;
         protected Logs logsDocument;
-        //protected Kernels kernel;
-
-
+        
         //
         // Ta metoda planuje kolejne zdarzenie.
         //
-        public void Plan(double time)
+        public void Plan(int time)
         {
-            if(myEvent.eventTime<0) // jesli jest pakietem z czasem -1
+            if(myEvent.eventTime<0)
                 myEvent.eventTime = time + 1;
             else
                 myEvent.eventTime = time;
             mySpace.AddToAgenda(myEvent);
         }
 
-        //
-        // Metoda obsługi procesu.
-        //
-        public virtual void Execute(double start) { }
+        public virtual void Execute() { }
 
-        public virtual void WriteToFile(double nextTime) { }
+        public virtual void WriteToFile(int nextTime) { }
 
     }
 }

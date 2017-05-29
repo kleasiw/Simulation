@@ -1,13 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
 
 namespace CSMA_1_persistent
 {
-    class Generators
+    public class Generators
     {
         public class UniformGenerator
         {
@@ -26,8 +21,7 @@ namespace CSMA_1_persistent
                 R = 2836;
             }
 
-
-
+            
             /// <summary>
             /// Draws number between [0,1]
             /// </summary>
@@ -52,20 +46,20 @@ namespace CSMA_1_persistent
             
         }
 
+
         public class ExpGenerator
         {
-            private double lambda_;
-            private UniformGenerator uniform_;
-            public ExpGenerator(double lambda, UniformGenerator ug)
+            private double lambda;
+            private UniformGenerator uniform;
+            public ExpGenerator(double L, UniformGenerator ug)
             {
-                lambda_ = lambda;
-                uniform_ = ug;
+                lambda = L;
+                uniform = ug;
             }
             public double Rand() {
-                double k = uniform_.Rand();
-                return -(1.0 / lambda_) * Math.Log(k);
+                double k = uniform.Rand();
+                return -(1.0 / lambda) * Math.Log(k);
             }
-            
-        };
+        }
     }
 }
